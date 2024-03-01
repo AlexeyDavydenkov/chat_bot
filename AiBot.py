@@ -9,7 +9,6 @@ from database.common.models import db, History
 from database.core import crud
 from settings import BotSettings
 
-
 bot = BotSettings()
 
 bot = Bot(token=bot.bot_key.get_secret_value())
@@ -36,7 +35,6 @@ def write_history(data):
     db_write(db, History, data)
     History.clean_history()
 
-
 class UserData(StatesGroup):
     awaiting_city = State()
 
@@ -45,7 +43,6 @@ class ParamsData(StatesGroup):
     awaiting_max_value = State()
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
-
 
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     buttons = [
@@ -130,7 +127,6 @@ async def process_max_value(message: types.Message, state: FSMContext):
         await message.answer(f'Минимальное значение: {min_population}, максимальное значение: {max_population}')
     await state.finish()
 
-
 #MIN
 @dp.message_handler(lambda message: message.text == 'MIN')
 async def process_option(message: types.Message):
@@ -146,7 +142,6 @@ async def process_option(message: types.Message):
         write_history(data)
     await message.answer(f'Город {name}\nЧисленность населения: {population} человек')
 
-
 #MAX
 @dp.message_handler(lambda message: message.text == 'MAX')
 async def process_option(message: types.Message):
@@ -161,7 +156,6 @@ async def process_option(message: types.Message):
         data = [{'message': elem.get('name'), 'number': elem.get('population')}]
         write_history(data)
     await message.answer(f'Город {name}\nЧисленность населения: {population} человек')
-
 
 #История запросов
 @dp.message_handler(lambda message: message.text == 'История запросов')
