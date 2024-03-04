@@ -9,41 +9,48 @@ from database.common.models import db, History
 from database.core import crud
 from settings import BotSettings
 
+#Инициализация бота и настройка параметров
 bot = BotSettings()
-
 bot = Bot(token=bot.bot_key.get_secret_value())
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
-
 dp.middleware.setup(LoggingMiddleware())
 
+#Получение фактов о городах из API сайта
 fact_by = site_api.get_fact()
 
+#Минимальное и максимальное значение численности по умолчанию
 min_population = 100000
 max_population = 400000
 
+#Объекты для работы с базой данных
 db_write = crud.create()
 db_read = crud.retrieve()
 
-def my_city(*args, **kwargs):
-    fact_by = site_api.get_fact()
-    responce = fact_by(*args, **kwargs)
-    responce = responce.json()
-    return responce
-
-def write_history(data):
-    db_write(db, History, data)
-    History.clean_history()
-
+#Классы состояний для FSM
 class UserData(StatesGroup):
     awaiting_city = State()
 
 class ParamsData(StatesGroup):
     awaiting_min_value = State()
     awaiting_max_value = State()
+
+
+def my_city(*args, **kwargs) -> dict:
+    """Функция получения информации о городе из API"""
+    fact_by = site_api.get_fact()
+    responce = fact_by(*args, **kwargs)
+    responce = responce.json()
+    return responce
+
+def write_history(data: list):
+    """Функция записи запросов в базу данных"""
+    db_write(db, History, data)
+    History.clean_history()
+
+#Обработчик команды /start
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
-
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     buttons = [
         types.KeyboardButton(text='MIN'),
@@ -58,6 +65,7 @@ async def send_welcome(message: types.Message):
         "Ознакомься с моей функциональностью по команде /info или начни работу.",
                         reply_markup=keyboard)
 
+#Обработчик команды /info
 @dp.message_handler(commands=['info'])
 async def send_info(message: types.Message):
     await message.reply('Данный бот имеет следующую функциональность:'
@@ -75,13 +83,13 @@ async def send_info(message: types.Message):
                 '\nИ наконец нажимая кнопку "История запросов" Вы получите последние 10 результатов введенных запросов.\n'
                     '\nПриятного пользования!')
 
-#Город
+#Обработчик кнопки "Город"
 @dp.message_handler(lambda message: message.text == 'Город')
 async def process_city_start(message: types.Message):
     await message.answer('Введите название города')
     await UserData.awaiting_city.set()
 
-
+#Обработчик ввода названия города
 @dp.message_handler(state=UserData.awaiting_city)
 async def process_city(message: types.Message, state: FSMContext):
     name_city = message.text
@@ -101,12 +109,13 @@ async def process_city(message: types.Message, state: FSMContext):
         await message.answer('Такого города нет в России, начните снова и введите корректное название города')
     await state.finish()
 
-#Параметры
+#Обработчик кнопки "Параметры"
 @dp.message_handler(lambda message: message.text == 'Параметры')
 async def process_params_start(message: types.Message):
     await message.answer('Введите минимальное значение населения')
     await ParamsData.awaiting_min_value.set()
 
+#Обработчик ввода мимимального значения
 @dp.message_handler(state=ParamsData.awaiting_min_value)
 async def process_min_value(message: types.Message, state: FSMContext):
     global min_population
@@ -117,6 +126,7 @@ async def process_min_value(message: types.Message, state: FSMContext):
         await message.answer('Введите максимальное значение населения')
     await ParamsData.awaiting_max_value.set()
 
+#Обработчик ввода максимального значения
 @dp.message_handler(state=ParamsData.awaiting_max_value)
 async def process_max_value(message: types.Message, state: FSMContext):
     global max_population
@@ -127,7 +137,7 @@ async def process_max_value(message: types.Message, state: FSMContext):
         await message.answer(f'Минимальное значение: {min_population}, максимальное значение: {max_population}')
     await state.finish()
 
-#MIN
+#Обработчик кнопки "MIN"
 @dp.message_handler(lambda message: message.text == 'MIN')
 async def process_option(message: types.Message):
     params["sort"] = "population",
@@ -142,7 +152,7 @@ async def process_option(message: types.Message):
         write_history(data)
     await message.answer(f'Город {name}\nЧисленность населения: {population} человек')
 
-#MAX
+#Обработчик кнопки "MAX"
 @dp.message_handler(lambda message: message.text == 'MAX')
 async def process_option(message: types.Message):
     params["sort"] = "-population",
@@ -157,7 +167,7 @@ async def process_option(message: types.Message):
         write_history(data)
     await message.answer(f'Город {name}\nЧисленность населения: {population} человек')
 
-#История запросов
+#Обработчик кнопки "История запросов"
 @dp.message_handler(lambda message: message.text == 'История запросов')
 async def process_history(message: types.Message):
     reteieved = db_read(db, History, History.message, History.number)
@@ -167,6 +177,7 @@ async def process_history(message: types.Message):
     else:
         await message.answer('Список истории запросов пуст')
 
+#Запуск бота
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
 
