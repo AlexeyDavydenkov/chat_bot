@@ -40,3 +40,5 @@
 #### Название бота для поиска в Telegram: MyLuckyTestBot
 
 #### Запуск бота осуществляется командой AiBot.py в терминале
+
+#### Ссылка: http://t.me/MyLuckyTestBot_bot
